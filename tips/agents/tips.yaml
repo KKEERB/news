@@ -1,0 +1,132 @@
+- id: agents-001
+  title_cn: 角色拆分：单一职责原则在 Agent 设计中的应用
+  title_en: "Role Decomposition: single-responsibility principle in agent design"
+  tips:
+    - cn: 每个 Agent 只负责一类任务（如"研究"、"编写"、"审核"），避免一个 Agent 承担多种角色。
+      en: Each agent handles exactly one type of task (e.g., "research", "write", "review") — avoid multi-role agents.
+    - cn: 用"输入/输出契约"定义每个 Agent 的接口，明确接收什么、输出什么。
+      en: Define each agent's interface with an "input/output contract" — specify exactly what it receives and what it produces.
+    - cn: 将"协调逻辑"从"执行逻辑"中分离，用一个 Orchestrator Agent 负责任务分配。
+      en: Separate "coordination logic" from "execution logic" — use a dedicated Orchestrator Agent for task routing.
+  prompt_cn: |
+    [系统：你是研究员 Agent]
+    职责：仅负责收集信息和事实，不做分析或写作。
+    输入：{{research_topic}}
+    输出：带来源的事实列表（JSON 格式）
+  prompt_en: |
+    [System: You are the Researcher Agent]
+    Responsibility: Collect information and facts only — no analysis or writing.
+    Input: {{research_topic}}
+    Output: A list of facts with sources (JSON format)
+  pitfall_cn: 不要让 Agent 自行决定"是否需要子 Agent"，这会导致不可预测的工作流，用明确的路由规则替代动态决策。
+  pitfall_en: Don't let agents autonomously decide whether to spawn sub-agents — it leads to unpredictable workflows. Use explicit routing rules instead.
+  further_reading:
+    - https://www.anthropic.com/research/building-effective-agents
+
+- id: agents-002
+  title_cn: Handoff（任务移交）设计模式
+  title_en: "Handoff Design Pattern for multi-agent workflows"
+  tips:
+    - cn: 移交时传递"上下文摘要 + 当前任务状态 + 具体指令"三件套，不要只传原始对话历史。
+      en: When handing off, pass "context summary + current task state + specific instructions" — don't just pass raw conversation history.
+    - cn: 定义"移交触发条件"：什么情况下 Agent A 应该移交给 Agent B，用明确的规则或关键词触发。
+      en: Define "handoff triggers" — explicit rules or keywords that determine when Agent A should hand off to Agent B.
+    - cn: 在移交消息中包含"失败回退"指令：如果下一个 Agent 无法完成任务，应该如何处理。
+      en: Include "failure fallback" instructions in handoff messages — specify what to do if the next agent cannot complete the task.
+  prompt_cn: |
+    [移交通知]
+    来自：{{from_agent}}
+    移交给：{{to_agent}}
+    任务摘要：{{task_summary}}
+    当前进度：{{progress}}
+    待完成工作：{{remaining_work}}
+    失败时请通知：{{fallback_contact}}
+  prompt_en: |
+    [Handoff Notice]
+    From: {{from_agent}}
+    To: {{to_agent}}
+    Task Summary: {{task_summary}}
+    Current Progress: {{progress}}
+    Remaining Work: {{remaining_work}}
+    On failure, notify: {{fallback_contact}}
+  pitfall_cn: 不要假设下一个 Agent 知道"上一个 Agent 做了什么"，每次移交都要完整地传递上下文。
+  pitfall_en: Never assume the next agent knows what the previous one did — always pass complete context with every handoff.
+  further_reading:
+    - https://langchain-ai.github.io/langgraph/
+
+- id: agents-003
+  title_cn: 质量门禁（Quality Gate）：在 Agent 流程中加入验收标准
+  title_en: "Quality Gates: adding acceptance criteria to agent workflows"
+  tips:
+    - cn: 在关键节点设置"自动验收检查"：如输出长度、必要字段、格式合规性等，不通过则重试。
+      en: Set "auto-acceptance checks" at key nodes — output length, required fields, format compliance — retry if failed.
+    - cn: 用"评判 Agent"（Judge Agent）专门评估其他 Agent 的输出质量，替代模型自评。
+      en: Use a dedicated "Judge Agent" to evaluate other agents' outputs instead of self-evaluation.
+    - cn: 设置最大重试次数（如 3 次）和最终降级策略，避免无限循环。
+      en: Set a max retry count (e.g., 3) and a final fallback strategy to prevent infinite retry loops.
+  prompt_cn: |
+    [质量检查 Agent]
+    请评估以下输出是否满足标准：
+    评估标准：{{criteria}}
+    待评估内容：{{output}}
+    请输出：{"pass": true/false, "issues": ["..."], "suggestions": ["..."]}
+  prompt_en: |
+    [Quality Check Agent]
+    Evaluate whether the following output meets the criteria:
+    Criteria: {{criteria}}
+    Output to evaluate: {{output}}
+    Return: {"pass": true/false, "issues": ["..."], "suggestions": ["..."]}
+  pitfall_cn: 不要用同一个 Agent 既生成内容又评估内容，它会有意无意地给自己的输出打高分（自我服务偏见）。
+  pitfall_en: Don't use the same agent to both generate and evaluate content — it will unconsciously score itself favorably (self-serving bias).
+  further_reading:
+    - https://arxiv.org/abs/2308.11432
+
+- id: agents-004
+  title_cn: Agent 记忆管理：短期、长期与外部记忆
+  title_en: "Agent Memory Management: short-term, long-term, and external memory"
+  tips:
+    - cn: 区分三类记忆：对话窗口（短期）、向量数据库（长期语义）、结构化存储（长期精确）。
+      en: Distinguish three memory types — conversation window (short-term), vector DB (long-term semantic), structured storage (long-term precise).
+    - cn: 让 Agent 在每次任务完成后"提炼学到了什么"写入长期记忆，而不是直接存原始对话。
+      en: Have agents "distill what they learned" into long-term memory after each task — don't store raw conversations.
+    - cn: 为不同优先级的记忆设置 TTL（过期时间），定期清理过时信息。
+      en: Set TTL (time-to-live) for memories by priority — periodically purge stale information.
+  prompt_cn: |
+    [记忆提炼指令]
+    请将本次任务中的关键信息提炼为 3 条，每条不超过 50 字：
+    1. 新发现的事实：
+    2. 有效的策略/方法：
+    3. 应避免的错误：
+  prompt_en: |
+    [Memory Distillation]
+    Summarize the key insights from this task into 3 items (≤50 words each):
+    1. New facts discovered:
+    2. Effective strategies/methods:
+    3. Mistakes to avoid:
+  pitfall_cn: 不要无限累积长期记忆，过时的信息会污染检索结果，导致 Agent 做出错误决策。
+  pitfall_en: Don't accumulate long-term memory indefinitely — stale information pollutes retrieval results and leads to poor decisions.
+  further_reading:
+    - https://docs.mem0.ai/
+
+- id: agents-005
+  title_cn: 多 Agent 调试技巧
+  title_en: "Multi-Agent Debugging Tips"
+  tips:
+    - cn: 为每个 Agent 添加唯一的日志前缀（如 [RESEARCHER] [WRITER]），方便追踪哪个 Agent 输出了什么。
+      en: Add unique log prefixes to each agent (e.g., [RESEARCHER] [WRITER]) to trace which agent produced which output.
+    - cn: 在测试阶段用"单步模式"运行：每次 handoff 后暂停，让人工检查中间状态。
+      en: During testing, run in "step mode" — pause after each handoff for human inspection of intermediate states.
+    - cn: 为每个 Agent 的输出添加置信度和推理说明字段，方便调试时理解决策逻辑。
+      en: Add confidence and reasoning fields to each agent's output for easier debugging of decision logic.
+  prompt_cn: |
+    [调试模式开启]
+    在你的每个输出结尾附加：
+    {"agent": "{{agent_name}}", "confidence": 0-1, "reasoning": "...", "next_action": "..."}
+  prompt_en: |
+    [Debug Mode ON]
+    Append to every output:
+    {"agent": "{{agent_name}}", "confidence": 0-1, "reasoning": "...", "next_action": "..."}
+  pitfall_cn: 生产环境中不要保留调试字段，它们会增加 token 消耗，并可能泄露系统内部信息。
+  pitfall_en: Remove debug fields in production — they increase token costs and may leak internal system information.
+  further_reading:
+    - https://docs.smith.langchain.com/

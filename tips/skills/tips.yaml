@@ -1,0 +1,130 @@
+- id: skills-001
+  title_cn: Web 搜索技巧：让模型更好地使用搜索工具
+  title_en: "Web Search Skills: help the model use search tools effectively"
+  tips:
+    - cn: 指示模型在搜索前先分解问题，识别哪些子问题需要查外部资料。
+      en: Instruct the model to decompose the question first and identify which sub-questions require external lookup.
+    - cn: 告诉模型"只引用搜索结果中有明确来源的事实"，减少搜索后的幻觉。
+      en: Tell the model to "only cite facts with explicit sources from search results" to reduce post-search hallucination.
+    - cn: 用"验证性搜索"策略：先生成初步答案，再搜索验证关键数据点。
+      en: Use a "verification search" strategy — generate a draft answer first, then search to verify key data points.
+  prompt_cn: |
+    你有网络搜索工具。请：
+    1. 先分析问题，决定需要搜索哪些关键词
+    2. 执行搜索，只引用有来源的信息
+    3. 综合搜索结果给出答案
+    问题：{{question}}
+  prompt_en: |
+    You have access to web search. Please:
+    1. Analyze the question and decide which keywords to search
+    2. Execute searches, citing only sourced information
+    3. Synthesize results into an answer
+    Question: {{question}}
+  pitfall_cn: 不要让模型无限制地搜索，设置明确的搜索次数上限（如最多 3 次），避免陷入搜索循环。
+  pitfall_en: Don't let the model search without limits — set a clear cap (e.g., max 3 searches) to avoid infinite search loops.
+  further_reading:
+    - https://docs.anthropic.com/en/docs/build-with-claude/tool-use
+
+- id: skills-002
+  title_cn: 代码执行工具：安全高效地使用代码解释器
+  title_en: "Code Execution: using code interpreters safely and efficiently"
+  tips:
+    - cn: 让模型在执行代码前先写出伪代码或步骤，减少因逻辑错误导致的多次重试。
+      en: Ask the model to write pseudocode or steps before executing — reduces retries caused by logic errors.
+    - cn: 对数据处理任务，先让模型生成"数据探索"代码（head/describe/info），再决定处理策略。
+      en: For data tasks, have the model generate exploratory code (head/describe/info) first before deciding on a processing strategy.
+    - cn: 设置超时和内存限制，并在提示词中告知模型这些约束，使其生成更高效的代码。
+      en: Set timeout and memory limits, and inform the model of these constraints in the prompt so it generates more efficient code.
+  prompt_cn: |
+    你有 Python 代码执行环境（最长运行 30 秒，内存限制 512MB）。
+    请先描述你的解题思路，再执行代码。
+    任务：{{task}}
+  prompt_en: |
+    You have a Python execution environment (max 30s, 512MB memory).
+    Describe your approach first, then execute code.
+    Task: {{task}}
+  pitfall_cn: 不要让模型直接执行用户输入的原始代码，要先做意图分析，防止提示词注入攻击。
+  pitfall_en: Never let the model execute raw user-provided code directly — perform intent analysis first to prevent prompt injection attacks.
+  further_reading:
+    - https://platform.openai.com/docs/assistants/tools/code-interpreter
+
+- id: skills-003
+  title_cn: 文件读写技巧：让模型处理长文档
+  title_en: "File I/O Skills: handling long documents with models"
+  tips:
+    - cn: 超长文档分块时，每块保留前后 200 字符的重叠区域，避免关键信息被切断。
+      en: When chunking long documents, keep a 200-character overlap between chunks to avoid cutting key information.
+    - cn: 先让模型生成文档目录（TOC），再针对性地读取相关章节，提高处理效率。
+      en: Have the model generate a table of contents first, then selectively read relevant sections for efficiency.
+    - cn: 对 PDF/Word 文档，预处理时保留段落结构标记，帮助模型理解层级关系。
+      en: When preprocessing PDF/Word files, preserve paragraph structure markers to help the model understand hierarchy.
+  prompt_cn: |
+    以下是文档的第 {{chunk_n}}/{{total_chunks}} 段：
+    ---
+    {{chunk_content}}
+    ---
+    请提取本段中与"{{topic}}"相关的关键信息。
+  prompt_en: |
+    The following is section {{chunk_n}} of {{total_chunks}}:
+    ---
+    {{chunk_content}}
+    ---
+    Extract key information related to "{{topic}}" from this section.
+  pitfall_cn: 不要把所有文档内容都塞进单次提示，即使上下文窗口很大，中间信息也容易被模型"遗忘"（Lost in the Middle 问题）。
+  pitfall_en: Don't stuff all document content into one prompt — even with large context windows, middle content tends to be forgotten (Lost in the Middle problem).
+  further_reading:
+    - https://arxiv.org/abs/2307.03172
+
+- id: skills-004
+  title_cn: 工具调用（Function Calling）最佳实践
+  title_en: "Function Calling Best Practices"
+  tips:
+    - cn: 为每个工具编写清晰的 description，说明"什么时候用"比"怎么用"更重要。
+      en: Write clear tool descriptions focusing on "when to use" rather than just "how to use" — the model needs to know when to invoke a tool.
+    - cn: 给工具参数加上示例值（examples），能显著提高模型传参的准确率。
+      en: Add example values to tool parameters — it significantly improves the accuracy of the model's argument passing.
+    - cn: 限制单次调用中可用的工具数量（≤10 个），工具太多会降低模型的选择准确率。
+      en: Limit the number of available tools per call to ≤10 — too many tools reduces the model's selection accuracy.
+  prompt_cn: |
+    你有以下工具可用：{{tool_list}}
+    在调用工具前，先思考：是否真的需要工具？哪个工具最合适？
+    用户请求：{{user_request}}
+  prompt_en: |
+    You have these tools available: {{tool_list}}
+    Before calling a tool, think: Is a tool really needed? Which tool fits best?
+    User request: {{user_request}}
+  pitfall_cn: 不要定义"万能工具"（如"执行任意操作"），过于宽泛的工具定义会导致模型滥用。
+  pitfall_en: Don't define overly broad "do-anything" tools — vague tool definitions lead to misuse and unpredictable behavior.
+  further_reading:
+    - https://platform.openai.com/docs/guides/function-calling
+
+- id: skills-005
+  title_cn: RAG（检索增强生成）调优技巧
+  title_en: "RAG Tuning Tips: retrieval-augmented generation"
+  tips:
+    - cn: 检索时同时使用"关键词搜索"和"向量相似度搜索"，混合结果通常比单一方式更好。
+      en: Use both keyword search and vector similarity search during retrieval — hybrid results usually outperform either alone.
+    - cn: 在提示词中明确标注哪些内容来自检索（用 [检索到的内容] 标签），帮助模型区分"已知信息"和"推理内容"。
+      en: Clearly label retrieved content in the prompt (e.g., [Retrieved Content] tags) to help the model distinguish known facts from reasoning.
+    - cn: 对检索结果按相关性评分排序后，只保留 top-k（如 k=5）个片段，避免噪声过多。
+      en: Sort retrieved results by relevance score and keep only top-k (e.g., k=5) snippets to avoid introducing noise.
+  prompt_cn: |
+    [参考资料]
+    {{retrieved_context}}
+
+    [用户问题]
+    {{question}}
+
+    请基于参考资料回答问题。如果参考资料中没有相关信息，请直接说明"资料中未找到"。
+  prompt_en: |
+    [Reference Material]
+    {{retrieved_context}}
+
+    [User Question]
+    {{question}}
+
+    Answer based on the reference material. If the material doesn't contain relevant info, say "Not found in provided material."
+  pitfall_cn: RAG 不是万能的：如果检索召回率太低（没检索到正确内容），模型再好也无法给出正确答案，要先优化检索质量。
+  pitfall_en: RAG is not a silver bullet — if retrieval recall is poor (right content not retrieved), even a great model cannot give correct answers. Optimize retrieval quality first.
+  further_reading:
+    - https://arxiv.org/abs/2312.10997
