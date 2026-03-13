@@ -1,0 +1,46 @@
+name: Daily Bilingual Tip
+
+on:
+  schedule:
+    # 01:00 UTC = 09:00 Asia/Shanghai (UTC+8, no daylight saving)
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}  # Allow manual trigger for testing
+
+permissions:
+  contents: write   # needed to commit updated state/sent.json
+  issues: write     # needed to create issues
+
+jobs:
+  publish-tip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Publish daily tip issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: python scripts/daily_tip.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/sent.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "chore: update sent-tip state [skip ci]"
+            git push
+          fi

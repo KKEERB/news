@@ -1,0 +1,140 @@
+- id: llm-001
+  title_cn: 结构化输出：用 JSON 模式约束模型输出
+  title_en: "Structured Output: constrain the model with JSON mode"
+  tips:
+    - cn: 在系统提示中明确要求输出 JSON，并给出字段名和类型说明，可大幅减少解析错误。
+      en: Explicitly request JSON output in the system prompt with field names and types to drastically reduce parsing errors.
+    - cn: 使用少样本示例（few-shot examples）展示期望格式，比单纯描述更有效。
+      en: Use few-shot examples to demonstrate the desired format — more effective than description alone.
+    - cn: 对关键字段加入"校验步骤"提示词：让模型先输出答案，再自检是否符合 schema。
+      en: Add a "self-check" step in the prompt asking the model to verify its output matches the schema.
+  prompt_cn: |
+    请以 JSON 格式输出，结构如下：
+    {"title": "...", "summary": "...", "tags": ["..."]}
+    先输出 JSON，再简短说明你的推理。
+  prompt_en: |
+    Please output in JSON format:
+    {"title": "...", "summary": "...", "tags": ["..."]}
+    Output the JSON first, then briefly explain your reasoning.
+  pitfall_cn: 不要只说"输出 JSON"，模型可能混入 markdown 代码块或多余文字。要指定"只输出纯 JSON，不要有任何其他内容"。
+  pitfall_en: "Don't just say 'output JSON' — the model may wrap it in markdown code fences or add extra text. Specify: 'output raw JSON only, nothing else'."
+  further_reading:
+    - https://platform.openai.com/docs/guides/structured-outputs
+
+- id: llm-002
+  title_cn: 上下文管理：如何优雅截断长对话
+  title_en: "Context Management: gracefully truncating long conversations"
+  tips:
+    - cn: 保留"系统提示 + 最近 N 轮对话 + 当前问题"三段，中间历史用摘要替代。
+      en: Keep "system prompt + last N turns + current question"; replace middle history with a running summary.
+    - cn: 让模型在每轮末尾输出一条 50 字内的"本轮摘要"，积累成滚动记忆。
+      en: Ask the model to output a ≤50-word "turn summary" at the end of each turn to build a rolling memory.
+    - cn: 对超长文档，先用 chunk + embedding 检索最相关段落，再放入上下文。
+      en: For very long documents, chunk + embed first and retrieve only the most relevant passages before adding to context.
+  prompt_cn: |
+    [对话摘要]
+    {{summary}}
+
+    [最近对话]
+    {{recent_turns}}
+
+    [当前问题]
+    {{question}}
+  prompt_en: |
+    [Conversation Summary]
+    {{summary}}
+
+    [Recent Turns]
+    {{recent_turns}}
+
+    [Current Question]
+    {{question}}
+  pitfall_cn: 不要简单地从头截断上下文（丢掉最早的消息），这会让模型"忘记"系统提示中的关键约束。
+  pitfall_en: "Don't truncate context from the beginning — you'll lose the system prompt's key constraints. Always preserve the system prompt."
+  further_reading:
+    - https://www.anthropic.com/research/long-context
+
+- id: llm-003
+  title_cn: 思维链（CoT）提示词技巧
+  title_en: "Chain-of-Thought (CoT) Prompting Tips"
+  tips:
+    - cn: 在提示末尾加"让我们一步步思考"（Let's think step by step）可显著提升推理准确率。
+      en: Appending "Let's think step by step" to prompts significantly boosts reasoning accuracy.
+    - cn: 对于复杂任务，用"先列出解题步骤，再执行"的方式，比直接要求答案更可靠。
+      en: For complex tasks, ask the model to "list steps first, then execute" rather than jumping straight to an answer.
+    - cn: 零样本 CoT 适合通用推理；少样本 CoT 适合有固定解题模式的领域。
+      en: Zero-shot CoT works for general reasoning; few-shot CoT is better when there's a fixed problem-solving pattern.
+  prompt_cn: |
+    问题：{{question}}
+    请先逐步列出分析思路，再给出最终答案。
+    思路：
+    答案：
+  prompt_en: |
+    Question: {{question}}
+    First list your reasoning steps, then provide the final answer.
+    Reasoning:
+    Answer:
+  pitfall_cn: CoT 会增加 token 消耗，对简单问题（查询、分类）反而可能引入不必要的幻觉，要按任务复杂度选用。
+  pitfall_en: CoT increases token usage. For simple queries or classifications it can introduce unnecessary hallucinations — use it selectively based on task complexity.
+  further_reading:
+    - https://arxiv.org/abs/2201.11903
+
+- id: llm-004
+  title_cn: 提示词版本管理：像管代码一样管提示词
+  title_en: "Prompt Versioning: manage prompts like code"
+  tips:
+    - cn: 把提示词存入 Git 仓库，每次修改都有 commit 记录，方便回滚和对比效果。
+      en: Store prompts in Git so every change is tracked, making rollback and A/B comparison easy.
+    - cn: 为每个提示词建立"输入/输出示例"的测试集，自动化评估修改前后的质量变化。
+      en: Build an input/output test set for each prompt to automatically evaluate quality before and after changes.
+    - cn: 用模板变量（如 {{variable}}）分离"固定结构"和"动态内容"，减少重复维护。
+      en: Use template variables (e.g., {{variable}}) to separate fixed structure from dynamic content, reducing duplication.
+  prompt_cn: |
+    # 提示词模板 v{{version}}
+    ## 角色
+    {{role}}
+    ## 任务
+    {{task}}
+    ## 约束
+    {{constraints}}
+    ## 输出格式
+    {{output_format}}
+  prompt_en: |
+    # Prompt Template v{{version}}
+    ## Role
+    {{role}}
+    ## Task
+    {{task}}
+    ## Constraints
+    {{constraints}}
+    ## Output Format
+    {{output_format}}
+  pitfall_cn: 不要把"提示词"和"业务逻辑"混写在同一段代码里，后期维护会非常痛苦。
+  pitfall_en: Don't mix prompt text with business logic in the same code block — it becomes a maintenance nightmare.
+  further_reading:
+    - https://python.langchain.com/docs/concepts/prompt_templates/
+
+- id: llm-005
+  title_cn: 温度与采样参数调优
+  title_en: "Temperature & Sampling Parameter Tuning"
+  tips:
+    - cn: 对需要确定性答案的任务（代码、数学）将 temperature 设为 0 或接近 0。
+      en: Set temperature to 0 (or near 0) for tasks requiring deterministic answers like code generation or math.
+    - cn: 对创意写作任务，temperature 0.7–0.9 + top_p 0.95 通常效果最好。
+      en: For creative writing, temperature 0.7–0.9 + top_p 0.95 usually works best.
+    - cn: 避免同时调高 temperature 和 top_p，两个参数都高会产生混乱输出。
+      en: Avoid setting both temperature and top_p high simultaneously — it produces incoherent outputs.
+  prompt_cn: |
+    （无固定提示词，通过 API 参数控制）
+    代码任务：temperature=0, top_p=1
+    摘要任务：temperature=0.3, top_p=0.9
+    创意任务：temperature=0.8, top_p=0.95
+  prompt_en: |
+    (Controlled via API parameters, not prompt text)
+    Code tasks: temperature=0, top_p=1
+    Summarization: temperature=0.3, top_p=0.9
+    Creative tasks: temperature=0.8, top_p=0.95
+  pitfall_cn: 在评估阶段使用 temperature>0 会导致结果不可复现，难以比较不同版本效果，评估时建议固定 temperature=0。
+  pitfall_en: Using temperature>0 during evaluation makes results non-reproducible and hard to compare — fix temperature=0 during evaluation runs.
+  further_reading:
+    - https://platform.openai.com/docs/api-reference/chat/create
